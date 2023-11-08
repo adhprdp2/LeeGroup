@@ -1,8 +1,8 @@
 import pyvisa
 
 
-class keithley2400:
-    def __init__(self, channel=1, port=24):
+class sr830:
+    def __init__(self, channel=1, port=15):
         rsc = f"GPIB{channel}::{port}::INSTR"
         rm = pyvisa.ResourceManager()
         self.instr = rm.open_resource(rsc)
@@ -11,6 +11,5 @@ class keithley2400:
         id = self.instr.query('*IDN?')
         return id
 
-    def vi_sweep(start, stop, step):
-        voltages, currents = [], []
+    def measure_impedance():
         return None
