@@ -1,0 +1,9 @@
+mask_id,growth_id,chip_index,device_label,device_design
+default_mask,default_growth,1,hbar1,default_hall_bar
+default_mask,default_growth,1,hbar2,default_hall_bar
+default_mask,default_growth,1,hbar3,default_hall_bar
+default_mask,default_growth,1,hbar4,default_hall_bar
+default_mask,default_growth,1,abloop1,default_aharonov_bohm_loop
+default_mask,default_growth,1,abloop2,default_aharonov_bohm_loop
+default_mask,default_growth,1,abloop3,default_aharonov_bohm_loop
+default_mask,default_growth,1,abloop4,default_aharonov_bohm_loop

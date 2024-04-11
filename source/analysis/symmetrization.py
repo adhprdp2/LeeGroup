@@ -1,3 +1,4 @@
+import yaml
 import scipy
 import numpy as np
 import pandas as pd
@@ -6,30 +7,30 @@ from pathlib import Path
 from datetime import datetime
 
 
-DATA_PATH = Path(__file__).parents[2] / 'data'
-
-
 # -------------------------- input parameters -----------------------------
 # -------------------------------------------------------------------------
-FILE_NAME = 'RvsHvarT_Ch3Sn6_4new_Rxx_Ch2_Rxy.dat'
+ANALYSIS_TYPE = 'hall_bar'
 
-design_input_parameters = {
-    'length': 600,  # um
-    'width': 200,  # um
-    'thickness': 2  # nm
-}
+FILE_NAME = 'hall-bar__wafer9999-chip1-hbar2__2023-10-10_23-34-05.dat'
+DESIGN_NAME = 'default_hall_bar_device'
 
-test_input_parameters = {
+TEST_INPUT_PARAMETERS = {
     'B_max': 14  # T
 }
 
-analysis_input_parameters = {
-
+ANALYSIS_INPUT_PARAMETERS = {
+    'window_length': 10
 }
 
 # -------------------------------------------------------------------------
 # -------------------------------------------------------------------------
 
+DATA_PATH = Path(__file__).parents[2] / 'data'
+
+SOURCE_PATH = DATA_PATH / 'measurement' / 'raw' / ANALYSIS_TYPE
+TARGET_PATH = DATA_PATH / 'measurement' / 'processed' / ANALYSIS_TYPE
+
+DESIGN_FILE = 'design_parameters.yml'
 
 def parse_file(filepath):
     file_open_time_epoch = 0.
@@ -39,7 +40,7 @@ def parse_file(filepath):
         if line.rstrip().lower() == '[data]': break
         if line.lower().startswith('fileopentime'): file_open_time_epoch = float(line.split(',')[1])
 
-    data_df = pd.read_csv(DATA_PATH / FILE_NAME, skiprows=header_line_count)
+    data_df = pd.read_csv(filepath, skiprows=header_line_count)
 
     data_df['Time Stamp (sec)'] = (pd.to_datetime(data_df['Time Stamp (sec)'], unit='s'))
 
@@ -92,7 +93,6 @@ def smooth_signal(data_df, window_length, signal_column_name):
 
 
 def symmetrize(data_df, x_column_name, y_column_name):
-
     # up sweep vs. down sweep
     # ...
     x = data_df[x_column_name]
@@ -110,7 +110,6 @@ def symmetrize(data_df, x_column_name, y_column_name):
 
 
 def antisymmetrize(data_df, x_column_name, y_column_name):
-
     # up sweep vs. down sweep
     # ...
     x = data_df[x_column_name]
@@ -127,44 +126,58 @@ def antisymmetrize(data_df, x_column_name, y_column_name):
     return data_df
 
 
-def extract_performance_parameters(design_parameters, data_df):
-    length, width, thickness = design_parameters['length'], design_parameters['width'], design_parameters['thickness']
+def extract_performance_parameters(device_design, data_df):
+    length, width, thickness = device_design['length'], device_design['width'], device_design['thickness']
 
     #z1 = (symRxxs(B,Rxx1,Rxx2,Bkey,Rxy)[9][-1]-symRxxs(B,Rxx1,Rxx2,Bkey,Rxy)[9][0])/(symRxxs(B,Rxx1,Rxx2,Bkey,Rxy)[0][-1]-symRxxs(B,Rxx1,Rxx2,Bkey,Rxy)[0][0])
-    z1 = None
-    R_H = z1 * 10000 * thickness * 10**-9 #rh in m(thats why 10^-9)
-    n3d = 1/(z1 * (1.602*10**-19) * 10**6) #times 10^6 to get into cm^3 from m^3
-    n2d = n3d*(thickness*10**-7) #converting to 2d density. 10^-7 to turn nm to cm
+    z1 = 1
+
+    r_h = z1 * 10000 * thickness * 10**-9 #rh in m(thats why 10^-9)
+    carrier_density_3d = 1/(z1 * (1.602*10**-19) * 10**6) #times 10^6 to get into cm^3 from m^3
+    carrier_density_2d = carrier_density_3d*(thickness*10**-7) #converting to 2d density. 10^-7 to turn nm to cm
 
     # R_0 = symRxxs(B,Rxx1,Rxx2,Bkey,Rxy)[9][np.argmin(abs(symRxxs(B,Rxx1,Rxx2,Bkey,Rxy)[0]))]
-    R_0 = None
-    R_sheet = R_0 * width / length
-    resisitivity = (R_sheet * thickness * (10**-9) * width / length)*10**5  # milliOhm cm
-    mobility = (1/(resisitivity * (1.602*10**-19) * n3d))*1000  # cm^2/(Vs))
+    r_0 = 1
 
-    performance_parameters = {}
+    r_sheet = r_0 * width / length
+    resisitivity = (r_sheet * thickness * (10**-9) * width / length)*10**5  # milliOhm cm
+    hall_mobility = (1/(resisitivity * (1.602*10**-19) * carrier_density_3d))*1000  # cm^2/(Vs))
+
+    performance_parameters = {
+        'r_h': r_h,
+        'r_0': r_0,
+        'r_sheet': r_sheet,
+        'resistivity': resisitivity,
+        'carrier_density_2d': carrier_density_2d,
+        'hall_mobility': hall_mobility
+    }
 
     return performance_parameters
 
 
 def main():
-    Bmax = 14 #max field used; important for interpolation fucntion
-    thickness = 40*10**-7#thickness in centimeters
-    geo = 4.35236 #thickness in centimeters Van der Pauw: pi/ln(2) =4.53236; Hall bar = lengh/Area
-    saturation = 6 # % of data used to fit the linear background (i.e. for a 10T scan, 10 would give a fit over 9-10T data range)
+    metadata, data_df = parse_file(SOURCE_PATH / FILE_NAME)
+    device_design  = yaml.load(open(DATA_PATH / 'design' / DESIGN_FILE, 'r'), Loader=yaml.Loader)[DESIGN_NAME]  # load before lengthy transforms in case of error
 
-    metadata, data_df = parse_file(DATA_PATH / FILE_NAME)
+    window_length = ANALYSIS_INPUT_PARAMETERS['window_length']
 
-    # data transformation operations
-    data_df = column_remap(data_df, file_type=FILE_NAME.split('.')[1])
-    data_df = cluster_temperatures(data_df)
-    #data_df = smooth_signal(data_df, window_length, 'y')
-    #data_df = symmetrize(data_df, 'x', 'y')
-    #data_df = antisymmetrize(data_df, 'x', 'y')
+    # --- data transformation operations ---
+    try:
+        data_df = column_remap(data_df, file_type=FILE_NAME.split('.')[1])
+        data_df = cluster_temperatures(data_df)
+        data_df = smooth_signal(data_df, window_length)
+        data_df = symmetrize(data_df)
+        data_df = antisymmetrize(data_df)
+    except:
+        pass  # temporarily skip code that isn't yet finished
 
-    #performance_parameters = extract_performance_parameters(data_df)
+    # compute collateral for reporting inputs
+    #   1.) desired params - resistivity, Hall mobility, etc. - from data
+    #   2.) processed raw data for future graphs, checks, or other further analysis
+    performance_parameters = extract_performance_parameters(device_design, data_df)
 
     print(data_df[['Temperature (K)', 'temperature_cluster', 'Magnetic Field (Oe)']])
     print(data_df.columns)
+    print(performance_parameters)
 
 main()

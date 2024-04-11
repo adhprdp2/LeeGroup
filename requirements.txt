@@ -1,3 +1,4 @@
 scipy
+pyyaml
 pandas
 matplotlib

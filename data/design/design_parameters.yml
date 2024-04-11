@@ -1,0 +1,11 @@
+---
+ default_hall_bar_device:
+   notes: > 
+          This is the default design when the data file includes no design info.
+          Caution should be used when running analysis w/ defualt device params.
+   length: 600
+   width: 200
+   thickness: 2
+   material: ''
+   contact_type: ''
+   type: 'hall_bar'
