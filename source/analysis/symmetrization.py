@@ -7,22 +7,28 @@ from datetime import datetime
 
 
 DATA_PATH = Path(__file__).parents[2] / 'data'
+
+
+# -------------------------- input parameters -----------------------------
+# -------------------------------------------------------------------------
 FILE_NAME = 'RvsHvarT_Ch3Sn6_4new_Rxx_Ch2_Rxy.dat'
 
-design_parameters = {
+design_input_parameters = {
     'length': 600,  # um
     'width': 200,  # um
     'thickness': 2  # nm
 }
 
-test_parameters = {
+test_input_parameters = {
     'B_max': 14  # T
 }
 
-COLUMN_REMAP = {
-    'pms': {},
-    'labview': {}
+analysis_input_parameters = {
+
 }
+
+# -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 
 def parse_file(filepath):
@@ -44,7 +50,13 @@ def parse_file(filepath):
     return metadata, data_df
 
 
-def column_remap(data_df):
+def column_remap(data_df, file_type=None):
+
+    if file_type == '.dat':
+        pass
+    if file_type == '.csv':
+        pass
+
     Cols = 4 #number of data columns per B field(include B field column)
     #below is the column number of each of the data points beginning at position zero
     #this lets the code know which columns are what
@@ -80,6 +92,9 @@ def smooth_signal(data_df, window_length, signal_column_name):
 
 
 def symmetrize(data_df, x_column_name, y_column_name):
+
+    # up sweep vs. down sweep
+    # ...
     x = data_df[x_column_name]
     y = data_df[y_column_name]
 
@@ -95,6 +110,9 @@ def symmetrize(data_df, x_column_name, y_column_name):
 
 
 def antisymmetrize(data_df, x_column_name, y_column_name):
+
+    # up sweep vs. down sweep
+    # ...
     x = data_df[x_column_name]
     y = data_df[y_column_name]
 
@@ -135,15 +153,11 @@ def main():
     geo = 4.35236 #thickness in centimeters Van der Pauw: pi/ln(2) =4.53236; Hall bar = lengh/Area
     saturation = 6 # % of data used to fit the linear background (i.e. for a 10T scan, 10 would give a fit over 9-10T data range)
 
-    # up sweep vs. down sweep
-    # ...
-
     metadata, data_df = parse_file(DATA_PATH / FILE_NAME)
 
-    data_df = column_remap(data_df)
-
+    # data transformation operations
+    data_df = column_remap(data_df, file_type=FILE_NAME.split('.')[1])
     data_df = cluster_temperatures(data_df)
-
     #data_df = smooth_signal(data_df, window_length, 'y')
     #data_df = symmetrize(data_df, 'x', 'y')
     #data_df = antisymmetrize(data_df, 'x', 'y')
